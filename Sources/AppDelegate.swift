@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let header = NSMenuItem()
 
     private var details: NetworkDetails?
+    private var isMenuOpen = false
+
+    private let detailsRefreshInterval = Duration.seconds(30)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
@@ -18,8 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         monitor.onChange = { [weak self] _ in
             self?.updateIcon()
+            Task { await self?.refreshDetails() }
         }
         monitor.start()
+        refreshDetailsPeriodically()
     }
 
     // MARK: - Status icon
@@ -32,14 +37,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Menu
 
-    /// Shows the last known details immediately, then refreshes them while the menu is open.
-    /// Fetching only on open keeps the app idle otherwise.
+    /// Details are refreshed in the background, never while the menu is open,
+    /// so the values and the menu's height stay still while you read it.
     func menuWillOpen(_ menu: NSMenu) {
-        rebuildMenu()
-        Task {
-            details = await NetworkDetails.gather()
-            rebuildMenu()
+        isMenuOpen = true
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        isMenuOpen = false
+        rebuildMenu()  // pick up any refresh that finished while it was open
+    }
+
+    private func refreshDetailsPeriodically() {
+        Task { [weak self, detailsRefreshInterval] in
+            while !Task.isCancelled {
+                await self?.refreshDetails()
+                try? await Task.sleep(for: detailsRefreshInterval)
+            }
         }
+    }
+
+    private func refreshDetails() async {
+        details = await NetworkDetails.gather()
+        if !isMenuOpen { rebuildMenu() }
     }
 
     private func rebuildMenu() {

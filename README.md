@@ -2,11 +2,9 @@
 
 A tiny macOS menu bar app: a colored dot that shows whether you're actually online.
 
-| Dot | Meaning |
-| --- | --- |
-| 🟢 | Internet reachable |
-| 🟠 | Network link up, but no internet (dead uplink, captive portal, DNS outage) |
-| 🔴 | No network |
+![Online, no internet, offline](docs/states.png)
+
+Orange means the network link is up but nothing gets through (dead uplink, captive portal, DNS outage).
 
 Click the dot for router, DNS, ping, and local IPv4/IPv6 details (click a row to copy it). There's also a **Launch at Login** toggle.
 

@@ -6,18 +6,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let monitor = ConnectivityMonitor()
     private let menu = NSMenu()
+    private let header = NSMenuItem()
 
     private var details: NetworkDetails?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
         statusItem.menu = menu
-        updateIcon()
+        updateIcon()  // also sets the menu header
         rebuildMenu()
 
         monitor.onChange = { [weak self] _ in
             self?.updateIcon()
-            self?.rebuildMenu()
         }
         monitor.start()
     }
@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateIcon() {
         statusItem.button?.image = monitor.state.dotImage
         statusItem.button?.setAccessibilityLabel(monitor.state.title)
+        updateHeader()
     }
 
     // MARK: - Menu
@@ -43,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func rebuildMenu() {
         menu.removeAllItems()
-        menu.addItem(makeHeader())
+        menu.addItem(header)
 
         if let details {
             for section in details.sections {
@@ -57,15 +58,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
-    /// The state name next to a matching colored dot.
-    private func makeHeader() -> NSMenuItem {
-        let item = NSMenuItem()
-        item.attributedTitle = NSAttributedString(
+    /// The state name next to a matching colored dot. It has no action, so macOS would dim it;
+    /// an explicit color keeps it at full strength, matching the rows below.
+    private func updateHeader() {
+        header.attributedTitle = NSAttributedString(
             string: monitor.state.title,
-            attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)]
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold),
+                .foregroundColor: NSColor.labelColor,
+            ]
         )
-        item.image = monitor.state.dotImage
-        return item
+        header.image = monitor.state.dotImage
     }
 
     /// A value row; clicking it copies the text.

@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
+        statusItem.autosaveName = "MacCon"  // remembers where the user dragged it
         statusItem.menu = menu
         updateIcon()  // also sets the menu header
         rebuildMenu()

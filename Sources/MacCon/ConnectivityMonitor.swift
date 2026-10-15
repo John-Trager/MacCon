@@ -42,11 +42,10 @@ final class ConnectivityMonitor {
     }
 
     private func probeAfterWake() {
-        Task { [weak self] in
-            let wakes = NSWorkspace.shared.notificationCenter.notifications(named: NSWorkspace.didWakeNotification)
-            for await _ in wakes {
-                await self?.checkInternet()
-            }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.checkInternet() }
         }
     }
 

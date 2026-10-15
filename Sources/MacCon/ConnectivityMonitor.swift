@@ -1,25 +1,19 @@
 import AppKit
 import Network
 
-/// Combines the OS route status with active internet probes into a `ConnectivityState`.
+/// Feeds route changes and internet probes into a `ConnectivityTracker`.
 @MainActor
 final class ConnectivityMonitor {
     /// Called whenever `state` changes.
     var onChange: ((ConnectivityState) -> Void)?
 
-    private(set) var state = ConnectivityState.offline {
-        didSet { if state != oldValue { onChange?(state) } }
-    }
+    var state: ConnectivityState { tracker.state }
 
+    private var tracker = ConnectivityTracker()
     private let pathMonitor = NWPathMonitor()
     private let probe = InternetProbe()
-
-    private var hasRoute = false
     private var isProbing = false
-    private var consecutiveFailures = 0
 
-    /// Probe failures in a row needed to drop from online, so one lost request doesn't flap the dot.
-    private let failuresBeforeNoInternet = 2
     private let probeInterval = Duration.seconds(10)
 
     func start() {
@@ -33,7 +27,7 @@ final class ConnectivityMonitor {
     private func watchRouteChanges() {
         pathMonitor.pathUpdateHandler = { [weak self] path in
             let hasRoute = path.status == .satisfied
-            Task { @MainActor in self?.routeChanged(hasRoute) }
+            Task { @MainActor in await self?.routeChanged(hasRoute) }
         }
         pathMonitor.start(queue: DispatchQueue(label: "MacCon.pathMonitor"))
     }
@@ -58,31 +52,22 @@ final class ConnectivityMonitor {
 
     // MARK: - State updates
 
-    private func routeChanged(_ hasRoute: Bool) {
-        self.hasRoute = hasRoute
-        if hasRoute {
-            Task { await checkInternet() }
-        } else {
-            consecutiveFailures = 0
-            state = .offline
-        }
+    private func routeChanged(_ hasRoute: Bool) async {
+        update { $0.routeChanged(hasRoute) }
+        if hasRoute { await checkInternet() }
     }
 
     private func checkInternet() async {
-        guard hasRoute, !isProbing else { return }
+        guard tracker.hasRoute, !isProbing else { return }
         isProbing = true
         let reachable = await probe.isInternetReachable()
         isProbing = false
+        update { $0.probeFinished(reachable: reachable) }
+    }
 
-        guard hasRoute else { return }  // the route vanished while probing
-        if reachable {
-            consecutiveFailures = 0
-            state = .online
-        } else {
-            consecutiveFailures += 1
-            if state != .online || consecutiveFailures >= failuresBeforeNoInternet {
-                state = .noInternet
-            }
-        }
+    private func update(_ change: (inout ConnectivityTracker) -> Void) {
+        let previous = tracker.state
+        change(&tracker)
+        if tracker.state != previous { onChange?(tracker.state) }
     }
 }

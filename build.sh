@@ -1,21 +1,14 @@
 #!/bin/sh
+# Builds MacCon.app (ad-hoc signed) in the project root.
 set -e
 cd "$(dirname "$0")"
+
+swift build -c release
 APP=MacCon.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
-swiftc -O -swift-version 6 Sources/*.swift -o "$APP/Contents/MacOS/MacCon"
-cat > "$APP/Contents/Info.plist" <<PL
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleName</key><string>MacCon</string>
-<key>CFBundleIdentifier</key><string>com.local.maccon</string>
-<key>CFBundleExecutable</key><string>MacCon</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleVersion</key><string>1</string>
-<key>LSUIElement</key><true/>
-</dict></plist>
-PL
-codesign --force --sign - "$APP" 2>/dev/null || true
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$(swift build -c release --show-bin-path)/MacCon" "$APP/Contents/MacOS/"
+cp Resources/Info.plist "$APP/Contents/"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+codesign --force --sign - "$APP"
 echo "Built $APP"

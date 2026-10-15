@@ -1,2 +1,4 @@
+.build/
 MacCon.app/
+*.zip
 .DS_Store

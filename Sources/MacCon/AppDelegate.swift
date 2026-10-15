@@ -1,4 +1,6 @@
 import AppKit
+import os
+import ServiceManagement
 
 /// Owns the menu bar item and keeps it in sync with connectivity.
 @MainActor
@@ -75,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        menu.addItem(makeLaunchAtLoginItem())
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
@@ -102,5 +105,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func copyToPasteboard(_ item: NSMenuItem) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(item.title, forType: .string)
+    }
+
+    // MARK: - Launch at login
+
+    private func makeLaunchAtLoginItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        item.target = self
+        item.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        return item
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            Logger().error("Launch at login failed: \(error.localizedDescription)")
+        }
+        rebuildMenu()
     }
 }
